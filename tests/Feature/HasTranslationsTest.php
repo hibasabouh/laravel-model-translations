@@ -431,5 +431,22 @@ it('throws if model does not define $translatable', function () {
             'price' => 100,
             'name' => ['en' => 'Test'],
         ])
-    )->toThrow(\Exception::class, 'must define a $translatable property');
+    )->toThrow(
+        \HibaSabouh\ModelTranslations\Exceptions\MissingTranslatablePropertyException::class,
+        'must define a $translatable property'
+    );
+});
+
+// ============================================================
+// Invalid translation format guard
+// ============================================================
+
+it('throws when translation attribute is not an array', function () {
+
+    expect(fn () =>
+        makeProduct(['sku' => 'ORA-2', 'name' => 'Invalid String Instead Of Array'])
+    )->toThrow(
+        \HibaSabouh\ModelTranslations\Exceptions\InvalidTranslationFormatException::class,
+        "The 'name' attribute must be an array"
+    );
 });

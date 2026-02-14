@@ -2,6 +2,8 @@
 
 namespace HibaSabouh\ModelTranslations\Traits;
 
+use HibaSabouh\ModelTranslations\Exceptions\InvalidTranslationFormatException;
+use HibaSabouh\ModelTranslations\Exceptions\MissingTranslatablePropertyException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -33,7 +35,9 @@ trait HasTranslations
     protected function getTranslatableAttributes(): array
     {
         if (!property_exists($this, 'translatable')) {
-            throw new \Exception(static::class . ' must define a $translatable property.');
+            throw new MissingTranslatablePropertyException(
+                static::class . ' must define a $translatable property.'
+            );
         }
 
         return $this->translatable ?? [];
@@ -164,7 +168,7 @@ trait HasTranslations
             if (!isset($data[$attribute])) continue;
 
             if (!is_array($data[$attribute])) {
-                throw new BadRequestHttpException(__('errors.unexpected'));
+                throw new InvalidTranslationFormatException($attribute);
             }
 
             foreach ($data[$attribute] as $lang => $value) {
