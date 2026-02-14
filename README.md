@@ -15,6 +15,7 @@ Add the `HasTranslations` trait to any Eloquent model to store and retrieve tran
 - Locale-aware magic accessors with configurable fallback strategy
 - Access all translations for an attribute at once via `{attribute}_translations`
 - Convenient CRUD methods: `createWithTranslations()`, `updateWithTranslations()`, `firstOrCreateWithTranslations()`, `updateOrCreateWithTranslations()`
+- Query scopes to filter by translation: `whereTranslation()`, `whereAnyTranslation()`, `orWhereTranslation()`, `orWhereAnyTranslation()`
 
 ---
 
@@ -192,6 +193,45 @@ The `translations()` relation is a standard `HasMany` and can be used like any E
 ```php
 $state->translations;                                         // all translations
 $state->translations()->where('lang', 'en')->first();         // filter by locale
+```
+
+### Querying by translation
+
+Four query scopes are available to filter models by their translated values.
+
+**`whereTranslation()`** — filters by a specific locale (defaults to the current app locale):
+
+```php
+// Exact match in current locale
+State::whereTranslation('name', 'California')->get();
+
+// With operator, current locale
+State::whereTranslation('name', 'like', '%land%')->get();
+
+// Explicit locale
+State::whereTranslation('name', 'like', '%land%', 'fr')->get();
+```
+
+**`whereAnyTranslation()`** — filters across all locales:
+
+```php
+// Match in any locale
+State::whereAnyTranslation('name', 'California')->get();
+
+// With operator, any locale
+State::whereAnyTranslation('name', 'like', '%cali%')->get();
+```
+
+**`orWhereTranslation()` and `orWhereAnyTranslation()`** — OR variants for chaining:
+
+```php
+State::whereTranslation('name', 'California')
+    ->orWhereTranslation('name', 'Californie')
+    ->get();
+
+State::where('status', 'active')
+    ->orWhereAnyTranslation('name', 'like', '%land%')
+    ->get();
 ```
 
 ---
