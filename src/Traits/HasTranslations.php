@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 /**
  * HasTranslations trait for database-driven model translations.
@@ -88,6 +89,21 @@ trait HasTranslations
         }
 
         return $this->translatable ?? [];
+    }
+
+    /**
+     * Determine whether the given attribute is translatable.
+     *
+     * Unlike `getTranslatableAttributes()`, this never throws, so it is safe
+     * to call from magic accessors.
+     *
+     * @param string $key Attribute name
+     * @return bool
+     */
+    public function isTranslatableAttribute(string $key): bool
+    {
+        return property_exists($this, 'translatable')
+            && in_array($key, $this->translatable ?? [], true);
     }
 
     /**
@@ -267,7 +283,7 @@ trait HasTranslations
     public function __get($key)
     {
         // Handle translatable attributes (e.g., $model->name)
-        if (in_array($key, $this->translatable ?? [])) {
+        if ($this->isTranslatableAttribute($key)) {
             $lang = app()->getLocale();
 
             if (!$this->relationLoaded('translations')) {
@@ -299,7 +315,7 @@ trait HasTranslations
         if (Str::endsWith($key, '_translations')) {
             $baseKey = Str::before($key, '_translations');
 
-            if (in_array($baseKey, $this->translatable ?? [])) {
+            if ($this->isTranslatableAttribute($baseKey)) {
                 if (!$this->relationLoaded('translations')) {
                     $translations = $this->translations()->get();
                     $this->setRelation('translations', $translations);
@@ -314,6 +330,94 @@ trait HasTranslations
         }
 
         return parent::__get($key);
+    }
+
+    /**
+     * Order the query by a translated attribute.
+     *
+     * Sorts by the value in `$lang` (defaults to the current locale) and falls back
+     * according to `config('translatable.fallback')`, like the magic accessor.
+     * Uses correlated subqueries, so selected columns and row counts are unaffected.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $attribute Translatable attribute name
+     * @param string $direction "asc" or "desc"
+     * @param string|null $lang Locale code (defaults to app()->getLocale())
+     * @return \Illuminate\Database\Eloquent\Builder
+     * @throws \InvalidArgumentException
+     */
+    public function scopeOrderByTranslation(Builder $query, string $attribute, string $direction = 'asc', ?string $lang = null): Builder
+    {
+        if (!$this->isTranslatableAttribute($attribute)) {
+            throw new InvalidArgumentException(
+                "[{$attribute}] is not a translatable attribute of " . static::class . '.'
+            );
+        }
+
+        $direction = strtolower($direction);
+
+        if (!in_array($direction, ['asc', 'desc'], true)) {
+            throw new InvalidArgumentException('Order direction must be "asc" or "desc".');
+        }
+
+        $lang = $lang ?: app()->getLocale();
+        $sortKeys = [$this->translationValueSubquery($attribute, $lang)];
+
+        $fallbackStrategy = config('translatable.fallback');
+        $fallbackLocale = config('app.fallback_locale');
+
+        if ($fallbackStrategy === 'app' && $fallbackLocale && $fallbackLocale !== $lang) {
+            $sortKeys[] = $this->translationValueSubquery($attribute, $fallbackLocale);
+        } elseif ($fallbackStrategy === 'first') {
+            $sortKeys[] = $this->translationValueSubquery($attribute, null);
+        }
+
+        if (count($sortKeys) === 1) {
+            return $query->orderBy($sortKeys[0], $direction);
+        }
+
+        $sql = implode(', ', array_map(fn (Builder $key) => '(' . $key->toSql() . ')', $sortKeys));
+        $bindings = array_merge(...array_map(fn (Builder $key) => $key->getBindings(), $sortKeys));
+
+        return $query->orderByRaw("coalesce({$sql}) {$direction}", $bindings);
+    }
+
+    /**
+     * Order the query by a translated attribute in descending order.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $attribute Translatable attribute name
+     * @param string|null $lang Locale code (defaults to app()->getLocale())
+     * @return \Illuminate\Database\Eloquent\Builder
+     * @throws \InvalidArgumentException
+     */
+    public function scopeOrderByTranslationDesc(Builder $query, string $attribute, ?string $lang = null): Builder
+    {
+        return $this->scopeOrderByTranslation($query, $attribute, 'desc', $lang);
+    }
+
+    /**
+     * Build a subquery selecting one translated value for the outer model row.
+     *
+     * A null `$lang` selects the model's first translation (by primary key).
+     *
+     * @param string $attribute Translatable attribute name
+     * @param string|null $lang Locale code
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    protected function translationValueSubquery(string $attribute, ?string $lang): Builder
+    {
+        $relation = $this->translations();
+        $translation = $relation->getRelated();
+
+        $query = $translation->newQuery()
+            ->select($translation->qualifyColumn($attribute))
+            ->whereColumn($relation->getQualifiedForeignKeyName(), $relation->getQualifiedParentKeyName())
+            ->limit(1);
+
+        return $lang === null
+            ? $query->orderBy($translation->getQualifiedKeyName())
+            : $query->where($translation->qualifyColumn('lang'), $lang);
     }
 
     /**

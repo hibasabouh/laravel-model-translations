@@ -85,7 +85,7 @@ echo $product->name; // "Ordinateur"
 
 - 🌍 **Locale-aware accessors** — `$model->name` automatically returns the current locale's value
 - 🔄 **Fallback strategies** — Choose between `null`, app fallback, or first available translation
-- 🔍 **Query scopes** — `whereTranslation()`, `whereAnyTranslation()` for filtering by translated content
+- 🔍 **Query scopes** — `whereTranslation()`, `whereAnyTranslation()` for filtering and `orderByTranslation()` for sorting by translated content
 - 💾 **Transactional CRUD** — All operations wrapped in database transactions
 - 🎯 **Convention over configuration** — Auto-resolves translation model names
 - ⚡ **Eager loading** — Configurable auto-eager-loading via global scope
@@ -336,6 +336,31 @@ Product::where('price', '<', 1000)
     ->orWhereAnyTranslation('description', 'like', '%gaming%')
     ->get();
 ```
+
+### Sorting by Translation
+
+```php
+Product::orderByTranslation('name')->get();               // current locale, ascending
+Product::orderByTranslation('name', 'desc')->get();       // descending
+Product::orderByTranslationDesc('name')->get();           // same as above
+Product::orderByTranslation('name', 'asc', 'fr')->get();  // a specific locale
+
+// Works with other scopes, pagination and relations
+$category->products()
+    ->whereTranslation('name', 'like', '%Pro%')
+    ->orderByTranslation('name')
+    ->paginate(20);
+```
+
+Missing translations follow the same `fallback` strategy as the accessors:
+
+| `fallback` | Sort key when the locale is missing |
+|------------|-------------------------------------|
+| `null`     | `NULL` |
+| `'app'`    | The `app.fallback_locale` value |
+| `'first'`  | The first translation (by id) |
+
+Sorting uses subqueries rather than a join, so selected columns and row counts are not affected. Rows with no usable translation sort as `NULL`, which comes first in ascending order on MySQL and SQLite and last on PostgreSQL. For large tables, keep the `unique(['{model}_id', 'lang'])` index from the setup guide.
 
 ---
 
