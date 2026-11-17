@@ -321,7 +321,7 @@ Product::whereTranslation('name', 'like', '%Laptop%')->get();
 
 **Specific locale:**
 ```php
-Product::whereTranslation('name', 'Ordinateur', '=', 'fr')->get();
+Product::whereTranslation('name', '=', 'Ordinateur', 'fr')->get();
 ```
 
 **Any locale:**
