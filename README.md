@@ -3,7 +3,7 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/hibasabouh/laravel-model-translations.svg)](https://packagist.org/packages/hibasabouh/laravel-model-translations)
 [![Total Downloads](https://img.shields.io/packagist/dt/hibasabouh/laravel-model-translations.svg)](https://packagist.org/packages/hibasabouh/laravel-model-translations)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://github.com/hiba-S/laravel-model-translations/actions/workflows/tests.yml/badge.svg)](https://github.com/hiba-S/laravel-model-translations/actions/workflows/tests.yml)
+[![Tests](https://github.com/hibasabouh/laravel-model-translations/actions/workflows/tests.yml/badge.svg)](https://github.com/hibasabouh/laravel-model-translations/actions/workflows/tests.yml)
 [![PHP](https://img.shields.io/packagist/php-v/hibasabouh/laravel-model-translations.svg)](https://packagist.org/packages/hibasabouh/laravel-model-translations)
 
 A clean, database-driven approach to model translations in Laravel. Store translations in separate normalized tables and access them with elegant, locale-aware magic accessors.
