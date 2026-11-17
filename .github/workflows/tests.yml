@@ -1,0 +1,51 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { laravel: 10, eol: true, testbench: 8, php: '8.1' }
+          - { laravel: 10, eol: true, testbench: 8, php: '8.2' }
+          - { laravel: 10, eol: true, testbench: 8, php: '8.3' }
+          - { laravel: 11, eol: true, testbench: 9, php: '8.2' }
+          - { laravel: 11, eol: true, testbench: 9, php: '8.3' }
+          - { laravel: 11, eol: true, testbench: 9, php: '8.4' }
+          - { laravel: 12, testbench: 10, php: '8.2' }
+          - { laravel: 12, testbench: 10, php: '8.3' }
+          - { laravel: 12, testbench: 10, php: '8.4' }
+          - { laravel: 12, testbench: 10, php: '8.5' }
+          - { laravel: 13, testbench: 11, php: '8.3' }
+          - { laravel: 13, testbench: 11, php: '8.4' }
+          - { laravel: 13, testbench: 11, php: '8.5' }
+          - { laravel: 13, testbench: 11, php: '8.3', stability: prefer-lowest }
+
+    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }} ${{ matrix.stability }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, pdo, sqlite3, pdo_sqlite
+          coverage: none
+
+      - name: Install dependencies
+        env:
+          # Laravel 10/11 are end-of-life with unfixed advisories; allow them for testing only.
+          COMPOSER_NO_SECURITY_BLOCKING: ${{ matrix.eol && '1' || '' }}
+        run: |
+          composer require "laravel/framework:^${{ matrix.laravel }}.0" "orchestra/testbench:^${{ matrix.testbench }}.0" --dev --no-interaction --no-update
+          composer update --${{ matrix.stability || 'prefer-stable' }} --prefer-dist --no-interaction --with-all-dependencies
+
+      - name: Run tests
+        run: vendor/bin/pest

@@ -310,6 +310,16 @@ it('does not eager load translations when auto_load is false', function () {
     expect($product->relationLoaded('translations'))->toBeFalse();
 });
 
+it('still eager loads translations when the model defines its own booted()', function () {
+    makeProduct(['sku' => 'BOOTED-HOOK']);
+
+    $product = \Tests\Models\BootedProduct::where('sku', 'BOOTED-HOOK')->first();
+
+    expect(\Tests\Models\BootedProduct::$bootedHookRan)->toBeTrue()
+        ->and($product->relationLoaded('translations'))->toBeTrue()
+        ->and($product->name)->toBe('Laptop');
+});
+
 // ============================================================
 // whereTranslation() scope
 // ============================================================

@@ -91,28 +91,6 @@ trait HasTranslations
     }
 
     /**
-     * Boot the trait.
-     *
-     * Registers a global scope to automatically eager load translations if
-     * `config('translatable.auto_load')` is true.
-     *
-     * @return void
-     */
-    protected static function booted(): void
-    {
-        if (config('translatable.auto_load')) {
-            $model = new static;
-            $scopeName = 'withTranslations';
-
-            if (!array_key_exists($scopeName, $model->getGlobalScopes())) {
-                static::addGlobalScope($scopeName, function (Builder $builder) {
-                    $builder->with('translations');
-                });
-            }
-        }
-    }
-
-    /**
      * Create a new model instance with translations.
      *
      * Translatable attributes should be passed as arrays keyed by locale:
@@ -339,7 +317,10 @@ trait HasTranslations
     }
 
     /**
-     * Boot the trait and register query scope macros.
+     * Boot the trait: register the auto-load scope and query scope macros.
+     *
+     * Adds a `withTranslations` global scope that eager loads translations
+     * when `config('translatable.auto_load')` is true.
      *
      * Registers four query builder macros:
      * - `whereTranslation($attribute, $operator, $value, $lang = null)`
@@ -351,6 +332,12 @@ trait HasTranslations
      */
     public static function bootHasTranslations(): void
     {
+        if (config('translatable.auto_load') && !static::hasGlobalScope('withTranslations')) {
+            static::addGlobalScope('withTranslations', function (Builder $builder) {
+                $builder->with('translations');
+            });
+        }
+
         /**
          * Filter by translation in a specific locale (defaults to current locale).
          *

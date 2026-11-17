@@ -94,25 +94,11 @@ class MakeTranslatedModelCommand extends Command
     
         $foreignKey = Str::snake($name) . '_id';
     
-        $content = file_get_contents($path);
-    
-        if (preg_match('/(class\s+\w+[^{]*\{)([\s\S]*?)(use\s+[^;]+;)/m', $content)) {
-            $content = preg_replace(
-                '/(class\s+\w+[^{]*\{)([\s\S]*?)(use\s+[^;]+;)/m',
-                "$1$2$3\n\n    protected \$fillable = [\n        '{$foreignKey}',\n        'lang',\n    ];",
-                $content,
-                1
-            );
-        } else {
-            // No trait use statement, inject directly after the opening brace
-            $content = preg_replace(
-                '/(class\s+\w+[^{]*\{)/',
-                "$1\n    protected \$fillable = [\n        '{$foreignKey}',\n        'lang',\n    ];",
-                $content,
-                1
-            );
-        }
-    
+        $content = $this->injectIntoClassBody(
+            file_get_contents($path),
+            "    protected \$fillable = [\n        '{$foreignKey}',\n        'lang',\n    ];"
+        );
+
         file_put_contents($path, $content);
     }
 
@@ -160,13 +146,30 @@ class MakeTranslatedModelCommand extends Command
             $content
         );
     
-        $content = preg_replace(
-            '/(class\s+\w+[^{]*\{)([\s\S]*?)(use\s+[^;]+;)/m',
-            "$1$2$3\n    use HasTranslations;\n\n    protected \$fillable = [];\n\n    protected \$translatable = [];",
+        $content = $this->injectIntoClassBody(
             $content,
-            1
+            "    use HasTranslations;\n\n    protected \$fillable = [];\n\n    protected \$translatable = [];"
         );
-    
+
         file_put_contents($path, $content);
+    }
+
+    /**
+     * Insert code at the top of the class body, after any trait use statements.
+     */
+    protected function injectIntoClassBody(string $content, string $code): string
+    {
+        // Laravel 11+ stubs leave a "//" placeholder in an empty class body.
+        $content = preg_replace('/(class\s+\w+[^{]*\{)\s*\/\/[ \t]*(?=\R)/', '$1', $content, 1);
+
+        $afterTraits = '/class\s+\w+[^{]*\{[\s\S]*?^[ \t]*use\s+[^;]+;/m';
+
+        if (preg_match($afterTraits, $content)) {
+            $separator = str_starts_with(ltrim($code), 'use ') ? "\n" : "\n\n";
+
+            return preg_replace_callback($afterTraits, fn ($m) => $m[0] . $separator . $code, $content, 1);
+        }
+
+        return preg_replace_callback('/class\s+\w+[^{]*\{/', fn ($m) => $m[0] . "\n" . $code, $content, 1);
     }
 }
